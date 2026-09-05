@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기어드모터 재고조회 | 부천중전기</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy:#12213F;
+    --navy-2:#1B2E52;
+    --steel:#3E6B99;
+    --steel-light:#EAF1F8;
+    --ink:#1F2937;
+    --ink-soft:#5B6472;
+    --line:#DDE3EA;
+    --bg:#F6F7F9;
+    --card:#FFFFFF;
+    --ok:#1E7A46;
+    --ok-bg:#E7F5EC;
+    --warn:#B4530A;
+    --warn-bg:#FBEEE1;
+    --zero:#8A93A0;
+    --zero-bg:#F0F1F3;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Pretendard','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;
+    font-size:14px;
+    line-height:1.5;
+  }
+  .app{max-width:1180px;margin:0 auto;padding:0 20px 60px;}
+
+  header.top{
+    background:var(--navy);
+    color:#fff;
+    padding:22px 0 0;
+    margin-bottom:24px;
+  }
+  header.top .inner{
+    max-width:1180px;margin:0 auto;padding:0 20px 18px;
+    display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:1px solid rgba(255,255,255,0.12);
+  }
+  header.top h1{
+    font-size:20px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;
+  }
+  header.top p.sub{
+    margin:0;font-size:12.5px;color:#AEBBD1;
+  }
+  .mode-area{display:flex;align-items:center;gap:10px;}
+  .mode-badge{
+    font-size:12px;padding:5px 10px;border-radius:999px;
+    background:rgba(255,255,255,0.1);color:#CBD6E6;
+    display:flex;align-items:center;gap:6px;
+  }
+  .mode-badge .dot{width:6px;height:6px;border-radius:50%;background:#7C93B8;}
+  .mode-badge.admin{background:#2C4A2E;color:#CFEBD2;}
+  .mode-badge.admin .dot{background:#4CAF6D;}
+  button.ghost-btn{
+    background:transparent;border:1px solid rgba(255,255,255,0.35);color:#fff;
+    padding:7px 14px;border-radius:var(--radius);cursor:pointer;font-size:12.5px;
+    font-family:inherit;
+  }
+  button.ghost-btn:hover{background:rgba(255,255,255,0.1);}
+
+  .toolbar{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    margin-bottom:16px;
+  }
+  .toolbar .row1{display:flex;gap:10px;margin-bottom:12px;}
+  .toolbar input[type=text]{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .toolbar input[type=text]:focus{outline:2px solid var(--steel);outline-offset:-1px;}
+  .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .filters select{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px 10px;
+    font-size:13px;
+    font-family:inherit;
+    background:#fff;
+    color:var(--ink);
+  }
+  .filters .clear{
+    margin-left:auto;font-size:12.5px;color:var(--steel);cursor:pointer;
+    text-decoration:underline;background:none;border:none;font-family:inherit;
+  }
+  .count-line{
+    font-size:12.5px;color:var(--ink-soft);margin:2px 2px 10px;
+  }
+  .count-line b{color:var(--ink);}
+
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+  thead th{
+    text-align:left;font-size:12px;color:var(--ink-soft);font-weight:600;
+    background:var(--steel-light);
+    padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  tbody td{
+    padding:10px 10px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAFBFC;}
+  td.item-id{font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--ink-soft);}
+  td.name{white-space:normal;min-width:220px;font-weight:500;}
+  .qty-pill{
+    display:inline-block;min-width:28px;text-align:center;
+    padding:3px 8px;border-radius:999px;font-weight:600;font-size:12.5px;
+  }
+  .qty-pill.pos{background:var(--ok-bg);color:var(--ok);}
+  .qty-pill.zero{background:var(--zero-bg);color:var(--zero);}
+  .qty-pill.warn{background:var(--warn-bg);color:var(--warn);}
+  .total-cell{font-weight:700;}
+  .empty-state{
+    text-align:center;padding:60px 20px;color:var(--ink-soft);
+    background:var(--card);border:1px dashed var(--line);border-radius:var(--radius);
+  }
+  .empty-state .big{font-size:15px;color:var(--ink);margin-bottom:6px;font-weight:600;}
+  .quick-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:14px;}
+  .quick-tags button{
+    border:1px solid var(--line);background:#fff;border-radius:999px;
+    padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--steel);font-family:inherit;
+  }
+  .quick-tags button:hover{background:var(--steel-light);}
+
+  .edit-cell{display:flex;gap:4px;align-items:center;}
+  .edit-cell input{
+    width:56px;border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-size:12.5px;font-family:inherit;
+  }
+  .edit-cell .save-btn{
+    border:none;background:var(--steel);color:#fff;border-radius:4px;
+    padding:4px 8px;font-size:11.5px;cursor:pointer;
+  }
+  .edit-cell .save-btn:disabled{opacity:0.35;cursor:default;}
+  .tx-btn{
+    border:1px solid var(--steel);background:#fff;color:var(--steel);
+    border-radius:5px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;
+  }
+  .tx-btn:hover{background:var(--steel-light);}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(15,23,42,0.45);
+    display:flex;align-items:center;justify-content:center;z-index:50;
+  }
+  .modal{
+    background:#fff;border-radius:8px;padding:24px 24px 20px;width:320px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.18);
+  }
+  .modal h3{margin:0 0 6px;font-size:16px;}
+  .modal p{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);}
+  .modal input{
+    width:100%;border:1px solid var(--line);border-radius:6px;padding:10px 12px;
+    font-size:14px;margin-bottom:10px;font-family:inherit;
+  }
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;}
+  .modal .actions button{
+    border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer;border:1px solid var(--line);
+    background:#fff;font-family:inherit;
+  }
+  .modal .actions button.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .modal .error{color:#B4212B;font-size:12px;margin:-4px 0 10px;}
+  .modal.wide{width:400px;}
+  .modal label{display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 4px;}
+  .modal .field-row{display:flex;gap:8px;}
+  .modal .field-row > div{flex:1;}
+  .item-suggest{
+    border:1px solid var(--line);border-top:none;max-height:160px;overflow-y:auto;
+    border-radius:0 0 6px 6px;margin-top:-10px;margin-bottom:10px;
+  }
+  .item-suggest div{padding:8px 10px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--line);}
+  .item-suggest div:last-child{border-bottom:none;}
+  .item-suggest div:hover{background:var(--steel-light);}
+  .selected-item-box{
+    background:var(--steel-light);border-radius:6px;padding:8px 10px;font-size:12.5px;margin-bottom:10px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .selected-item-box button{background:none;border:none;color:var(--steel);cursor:pointer;font-size:12px;font-family:inherit;}
+
+  .log-panel{
+    margin-top:20px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .log-panel h4{margin:0 0 10px;font-size:13px;color:var(--ink-soft);font-weight:600;}
+  .log-row{
+    display:flex;gap:10px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--ink-soft);
+  }
+  .log-row:last-child{border-bottom:none;}
+  .log-row .t{color:var(--ink);font-weight:500;}
+
+  footer.foot{
+    text-align:center;color:var(--ink-soft);font-size:11.5px;margin-top:30px;
+  }
+
+  @media (max-width: 720px){
+    .app{padding:0 12px 40px;}
+    table{display:block;overflow-x:auto;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <h1>기어드모터 재고조회</h1>
+      <p class="sub">부천중전기 · 효성 기어드모터 재고 현황</p>
+    </div>
+    <div class="mode-area">
+      <span id="modeBadge" class="mode-badge"><span class="dot"></span>조회 모드</span>
+      <button class="ghost-btn" id="modeToggleBtn">관리자 로그인</button>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+
+  <div class="toolbar">
+    <div class="row1">
+      <input type="text" id="searchInput" placeholder="아이템번호 또는 품명으로 검색 (예: HKA030101000053, F1HA)">
+      <button class="ghost-btn" id="addTxBtn" style="display:none;background:var(--navy);border-color:var(--navy);color:#fff;">+ 입출고 등록</button>
+    </div>
+    <div class="filters">
+      <select id="fCat"><option value="">형식 전체</option></select>
+      <select id="fKw"><option value="">용량 전체</option></select>
+      <select id="fRatio"><option value="">감속비 전체</option></select>
+      <select id="fVolt"><option value="">전원 전체</option></select>
+      <select id="fFreq"><option value="">주파수 전체</option></select>
+      <select id="fStock"><option value="">가용재고 전체</option><option value="in">가용재고 있음</option><option value="out">가용재고 없음</option></select>
+      <button class="clear" id="clearBtn">필터 초기화</button>
+    </div>
+  </div>
+
+  <div id="statusLine" style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
+  <div id="countLine" class="count-line"></div>
+  <div id="resultArea"></div>
+  <div id="logPanel"></div>
+
+  <footer class="foot">실시간 데이터베이스(Supabase) 기준 · 모든 접속자가 같은 재고 현황을 봅니다</footer>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+// ============================================================
+// Supabase 연결 정보 — 아래 두 값만 채우면 됩니다.
+// Settings > API 에서 Project URL / anon public key 를 복사해서 넣으세요.
+// ============================================================
+const SUPABASE_URL = "https://hnklmlyggdayszzshusj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_IooXwTQIZ-MfXzj21KfgMg_axwBLRQU";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const WH_LABEL = {bc:'부천매장', gp:'김포창고'};
+
+let ITEMS = [];        // current_stock 뷰에서 로드 (재고 자동계산 포함)
+let isAdmin = false;
+let currentUserEmail = null;
+
+// ---------- 데이터 로드 ----------
+async function loadItems(){
+  const statusLine = document.getElementById('statusLine');
+  statusLine.textContent = '불러오는 중...';
+  const { data, error } = await sb.from('current_stock').select('*');
+  if(error){
+    statusLine.textContent = '데이터를 불러오지 못했습니다: ' + error.message;
+    console.error(error);
+    return;
+  }
+  ITEMS = data;
+  statusLine.textContent = `총 ${ITEMS.length.toLocaleString()}개 품목 · 실시간 연동 중`;
+  populateFilters();
+  render();
+}
+
+// 실시간 반영: 다른 사람이 입출고를 등록하거나 재고를 수정하면 자동으로 다시 불러옴
+sb.channel('stock-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_transactions' }, loadItems)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, loadItems)
+  .subscribe();
+
+// ---------- 필터 옵션 ----------
+function uniqueSorted(arr){
+  return [...new Set(arr.filter(v => v !== null && v !== undefined && v !== ''))].sort((a,b)=>{
+    if(typeof a === 'number' && typeof b === 'number') return a-b;
+    return String(a).localeCompare(String(b));
+  });
+}
+function populateSelect(sel, values, suffix){
+  sel.querySelectorAll('option:not(:first-child)').forEach(o=>o.remove());
+  values.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = suffix ? (v + suffix) : v;
+    sel.appendChild(opt);
+  });
+}
+const fCat=document.getElementById('fCat'), fKw=document.getElementById('fKw'),
+      fRatio=document.getElementById('fRatio'), fVolt=document.getElementById('fVolt'),
+      fFreq=document.getElementById('fFreq'), fStock=document.getElementById('fStock'),
+      searchInput=document.getElementById('searchInput');
+
+function populateFilters(){
+  populateSelect(fCat, uniqueSorted(ITEMS.map(i=>i.cat)));
+  populateSelect(fKw, uniqueSorted(ITEMS.map(i=>i.kw)), 'kW');
+  populateSelect(fRatio, uniqueSorted(ITEMS.map(i=>i.ratio)), ':1');
+  populateSelect(fVolt, uniqueSorted(ITEMS.map(i=>i.volt)));
+  populateSelect(fFreq, uniqueSorted(ITEMS.map(i=>i.freq)));
+}
+[fCat,fKw,fRatio,fVolt,fFreq,fStock].forEach(el=>el.addEventListener('change', render));
+searchInput.addEventListener('input', debounce(render, 150));
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  searchInput.value=''; [fCat,fKw,fRatio,fVolt,fFreq,fStock].forEach(el=>el.value=''); render();
+});
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+// ---------- 필터링 & 렌더 ----------
+function matchesFilters(item){
+  const q = searchInput.value.trim().toLowerCase();
+  if(q && !(item.id.toLowerCase().includes(q) || (item.name||'').toLowerCase().includes(q))) return false;
+  if(fCat.value && String(item.cat) !== fCat.value) return false;
+  if(fKw.value && String(item.kw) !== fKw.value) return false;
+  if(fRatio.value && String(item.ratio) !== fRatio.value) return false;
+  if(fVolt.value && String(item.volt) !== fVolt.value) return false;
+  if(fFreq.value && String(item.freq) !== fFreq.value) return false;
+  if(fStock.value){
+    const avail = (item.bc||0)+(item.gp||0)-(item.reserved_qty||0);
+    if(fStock.value === 'in' && avail <= 0) return false;
+    if(fStock.value === 'out' && avail > 0) return false;
+  }
+  return true;
+}
+
+const countLine=document.getElementById('countLine'), resultArea=document.getElementById('resultArea'),
+      logPanel=document.getElementById('logPanel');
+const MAX_ROWS = 300;
+
+function render(){
+  const hasQuery = searchInput.value.trim() || fCat.value || fKw.value || fRatio.value || fVolt.value || fFreq.value || fStock.value;
+  if(!hasQuery){
+    countLine.textContent='';
+    resultArea.innerHTML = `
+      <div class="empty-state">
+        <div class="big">아이템번호를 입력하거나 조건을 선택해 재고를 조회하세요</div>
+        <div>전체 ${ITEMS.length.toLocaleString()}개 품목 중에서 검색합니다</div>
+        <div class="quick-tags">${uniqueSorted(ITEMS.map(i=>i.cat)).map(c=>`<button data-cat="${c}">${c}</button>`).join('')}</div>
+      </div>`;
+    resultArea.querySelectorAll('[data-cat]').forEach(btn=>btn.addEventListener('click', ()=>{ fCat.value=btn.dataset.cat; render(); }));
+    renderLog();
+    return;
+  }
+  const filtered = ITEMS.filter(matchesFilters);
+  countLine.innerHTML = `<b>${filtered.length.toLocaleString()}</b>개 품목 검색됨${filtered.length>MAX_ROWS?` · 상위 ${MAX_ROWS}개만 표시됩니다`:''}`;
+  if(filtered.length===0){
+    resultArea.innerHTML = `<div class="empty-state"><div class="big">일치하는 품목이 없습니다</div></div>`;
+    renderLog(); return;
+  }
+  const rows = filtered.slice(0,MAX_ROWS).map(item=>{
+    const total=(item.bc||0)+(item.gp||0), avail=total-(item.reserved_qty||0);
+    const pillClass = avail>0 ? 'pos':'zero';
+    const rsvCols = isAdmin ? `
+      <td>${editCell(item.id,'reserved_qty',item.reserved_qty,'num')}</td>
+      <td>${editCell(item.id,'reserved_by',item.reserved_by,'text')}</td>
+    ` : `
+      <td>${item.reserved_qty ? `<span class="qty-pill warn">${item.reserved_qty}</span>` : '-'}</td>
+      <td>${item.reserved_by || '-'}</td>
+    `;
+    const adminCol = isAdmin ? `<td><button class="tx-btn" data-id="${item.id}">입출고</button></td>` : '';
+    return `<tr>
+      <td class="item-id">${item.id}</td><td class="name">${item.name||''}</td>
+      <td>${item.cat||''}</td><td>${item.kw!=null?item.kw+'kW':''}</td><td>${item.pole||''}</td>
+      <td>${item.ratio!=null?item.ratio+':1':''}</td><td>${item.volt||''}</td><td>${item.freq||''}</td>
+      <td>${item.frame||''}</td><td>${item.eff||''}</td>
+      <td class="total-cell">${total}</td>
+      <td><span class="qty-pill ${item.bc>0?'pos':'zero'}">${item.bc||0}</span></td>
+      <td><span class="qty-pill ${item.gp>0?'pos':'zero'}">${item.gp||0}</span></td>
+      ${rsvCols}
+      <td class="total-cell"><span class="qty-pill ${pillClass}">${avail}</span></td>
+      ${adminCol}
+    </tr>`;
+  }).join('');
+  resultArea.innerHTML = `<table><thead><tr>
+    <th>아이템번호</th><th>품명</th><th>형식</th><th>용량</th><th>극수</th><th>감속비</th>
+    <th>전원</th><th>주파수</th><th>프레임</th><th>효율등급</th><th>총재고</th>
+    <th>부천매장</th><th>김포창고</th><th>예약수량</th><th>예약처</th><th>가용재고</th>${isAdmin?'<th></th>':''}
+  </tr></thead><tbody>${rows}</tbody></table>`;
+
+  if(isAdmin){
+    resultArea.querySelectorAll('.save-btn').forEach(btn=>btn.addEventListener('click', onSaveEdit));
+    resultArea.querySelectorAll('.edit-cell input').forEach(inp=>inp.addEventListener('input', ()=>{
+      inp.closest('.edit-cell').querySelector('.save-btn').disabled = false;
+    }));
+    resultArea.querySelectorAll('.tx-btn').forEach(btn=>btn.addEventListener('click', ()=>openTxModal(btn.dataset.id)));
+  }
+  renderLog();
+}
+
+function editCell(itemId, field, value, type){
+  if(type==='text') return `<span class="edit-cell"><input type="text" style="width:84px;" data-id="${itemId}" data-field="${field}" value="${value||''}"><button class="save-btn" disabled data-id="${itemId}" data-field="${field}">저장</button></span>`;
+  return `<span class="edit-cell"><input type="number" data-id="${itemId}" data-field="${field}" value="${value||0}"><button class="save-btn" disabled data-id="${itemId}" data-field="${field}">저장</button></span>`;
+}
+
+async function onSaveEdit(e){
+  const btn = e.currentTarget, id = btn.dataset.id, field = btn.dataset.field;
+  const input = btn.closest('.edit-cell').querySelector('input');
+  const isText = field === 'reserved_by';
+  const newVal = isText ? input.value.trim() : (parseInt(input.value,10)||0);
+  const item = ITEMS.find(i=>i.id===id);
+  if(newVal === item[field]){ btn.disabled = true; return; }
+
+  const { error } = await sb.from('items').update({ [field]: newVal }).eq('id', id);
+  if(error){ alert('저장 실패: ' + error.message); return; }
+  btn.disabled = true;
+  await loadItems();
+}
+
+// ---------- 입출고 등록 ----------
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+function openTxModal(presetItemId){
+  const presetItem = presetItemId ? ITEMS.find(i=>i.id===presetItemId) : null;
+  modalRoot.innerHTML = `<div class="modal-overlay" id="ovl"><div class="modal wide">
+    <h3>입출고 등록</h3>
+    <p>오늘 발생한 입고 또는 출고를 기록하면 재고에 실시간 반영됩니다.</p>
+    <div id="itemPickArea">
+      ${presetItem?'':`<label>아이템번호 또는 품명 검색</label><input type="text" id="txItemSearch" placeholder="예: HKA030101000053, F1HA" autocomplete="off"><div class="item-suggest" id="txSuggest" style="display:none;"></div>`}
+      <div class="selected-item-box" id="selectedItemBox" style="${presetItem?'':'display:none;'}">
+        <span id="selectedItemText"></span><button id="changeItemBtn">변경</button>
+      </div>
+    </div>
+    <input type="hidden" id="txItemId" value="${presetItem?presetItem.id:''}">
+    <div class="field-row">
+      <div><label>구분</label><select id="txType"><option value="입고">입고</option><option value="출고">출고</option></select></div>
+      <div><label>창고</label><select id="txWh"><option value="bc">부천매장</option><option value="gp">김포창고</option></select></div>
+    </div>
+    <div class="field-row">
+      <div><label>수량</label><input type="number" id="txQty" min="1" value="1"></div>
+      <div><label>날짜</label><input type="date" id="txDate" value="${todayStr()}"></div>
+    </div>
+    <label>비고 (선택)</label><input type="text" id="txNote" placeholder="예: 효성종합상사 출고">
+    <div class="error" id="txErr" style="display:none;"></div>
+    <div class="actions"><button id="txCancel">취소</button><button class="primary" id="txSubmit">등록</button></div>
+  </div></div>`;
+
+  const ovl = document.getElementById('ovl');
+  ovl.addEventListener('click', e=>{ if(e.target===ovl) modalRoot.innerHTML=''; });
+  document.getElementById('txCancel').addEventListener('click', ()=>modalRoot.innerHTML='');
+  if(presetItem) setSelectedItem(presetItem);
+
+  const searchInput2 = document.getElementById('txItemSearch');
+  if(searchInput2){
+    searchInput2.addEventListener('input', debounce(()=>{
+      const q = searchInput2.value.trim().toLowerCase();
+      const sug = document.getElementById('txSuggest');
+      if(!q){ sug.style.display='none'; sug.innerHTML=''; return; }
+      const matches = ITEMS.filter(i=>i.id.toLowerCase().includes(q)||(i.name||'').toLowerCase().includes(q)).slice(0,8);
+      if(!matches.length){ sug.style.display='none'; return; }
+      sug.innerHTML = matches.map(i=>`<div data-id="${i.id}">${i.id} · ${i.name||''}</div>`).join('');
+      sug.style.display='block';
+      sug.querySelectorAll('div').forEach(div=>div.addEventListener('click', ()=>{
+        setSelectedItem(ITEMS.find(i=>i.id===div.dataset.id));
+        sug.style.display='none'; searchInput2.style.display='none';
+      }));
+    },120));
+  }
+  document.getElementById('txSubmit').addEventListener('click', onSubmitTx);
+}
+
+function setSelectedItem(item){
+  document.getElementById('txItemId').value = item.id;
+  const box = document.getElementById('selectedItemBox');
+  box.style.display='flex';
+  document.getElementById('selectedItemText').textContent = `${item.id} · ${item.name||''}`;
+  const s2 = document.getElementById('txItemSearch');
+  if(s2) s2.style.display='none';
+  document.getElementById('changeItemBtn').onclick = ()=>{
+    document.getElementById('txItemId').value='';
+    box.style.display='none';
+    if(s2){ s2.style.display='block'; s2.value=''; s2.focus(); }
+  };
+}
+
+async function onSubmitTx(){
+  const itemId = document.getElementById('txItemId').value;
+  const errBox = document.getElementById('txErr');
+  if(!itemId){ errBox.textContent='품목을 먼저 선택하세요'; errBox.style.display='block'; return; }
+  const item = ITEMS.find(i=>i.id===itemId);
+  const type = document.getElementById('txType').value;
+  const wh = document.getElementById('txWh').value;
+  const qty = parseInt(document.getElementById('txQty').value,10);
+  const date = document.getElementById('txDate').value;
+  const note = document.getElementById('txNote').value.trim();
+
+  if(!qty || qty<=0){ errBox.textContent='수량은 1 이상이어야 합니다'; errBox.style.display='block'; return; }
+  if(type==='출고'){
+    const stockNow = wh==='bc' ? item.bc : item.gp;
+    if(qty > stockNow){ errBox.textContent=`${WH_LABEL[wh]} 현재 재고(${stockNow}개)보다 많이 출고할 수 없습니다`; errBox.style.display='block'; return; }
+  }
+
+  const { error } = await sb.from('stock_transactions').insert({
+    item_id: itemId, tx_date: date, tx_type: type, warehouse: wh, qty, note,
+    created_by: currentUserEmail
+  });
+  if(error){ errBox.textContent = '등록 실패: ' + error.message; errBox.style.display='block'; return; }
+
+  modalRoot.innerHTML = '';
+  await loadItems();
+}
+
+// ---------- 로그 (최근 입출고 이력) ----------
+async function renderLog(){
+  if(!isAdmin){ logPanel.innerHTML=''; return; }
+  const { data, error } = await sb.from('stock_transactions')
+    .select('*').order('created_at', { ascending: false }).limit(15);
+  if(error || !data || !data.length){
+    logPanel.innerHTML = `<div class="log-panel"><h4>최근 입출고 이력</h4><div class="log-row">아직 기록된 입출고가 없습니다</div></div>`;
+    return;
+  }
+  const rows = data.map(t=>{
+    const d = new Date(t.created_at);
+    const dstr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const sign = t.tx_type==='입고' ? '+' : '−';
+    const item = ITEMS.find(i=>i.id===t.item_id);
+    return `<div class="log-row"><span class="t">${dstr}</span><span>${t.item_id}</span><span>${item?item.name:''}</span><span>${WH_LABEL[t.warehouse]} ${t.tx_type} ${sign}${t.qty}</span><span>${t.note||''}</span></div>`;
+  }).join('');
+  logPanel.innerHTML = `<div class="log-panel"><h4>최근 입출고 이력</h4>${rows}</div>`;
+}
+
+// ---------- 관리자 로그인 (Supabase Auth) ----------
+const modeBadge=document.getElementById('modeBadge'), modeToggleBtn=document.getElementById('modeToggleBtn'),
+      modalRoot=document.getElementById('modalRoot'), addTxBtn=document.getElementById('addTxBtn');
+
+function setAdminUI(v){
+  isAdmin = v;
+  if(v){
+    modeBadge.className='mode-badge admin'; modeBadge.innerHTML='<span class="dot"></span>관리자 모드 (' + currentUserEmail + ')';
+    modeToggleBtn.textContent='로그아웃'; addTxBtn.style.display='inline-block';
+  }else{
+    modeBadge.className='mode-badge'; modeBadge.innerHTML='<span class="dot"></span>조회 모드';
+    modeToggleBtn.textContent='관리자 로그인'; addTxBtn.style.display='none';
+  }
+  render();
+}
+
+addTxBtn.addEventListener('click', ()=>openTxModal(null));
+modeToggleBtn.addEventListener('click', async ()=>{
+  if(isAdmin){ await sb.auth.signOut(); setAdminUI(false); return; }
+  openLoginModal();
+});
+
+function openLoginModal(){
+  modalRoot.innerHTML = `<div class="modal-overlay" id="ovl"><div class="modal">
+    <h3>관리자 로그인</h3>
+    <p>부천중전기 관리자 계정으로 로그인하세요.</p>
+    <div class="error" id="loginErr" style="display:none;"></div>
+    <input type="email" id="loginEmail" placeholder="이메일">
+    <input type="password" id="loginPw" placeholder="비밀번호">
+    <div class="actions"><button id="loginCancel">취소</button><button class="primary" id="loginOk">로그인</button></div>
+  </div></div>`;
+  const ovl=document.getElementById('ovl');
+  ovl.addEventListener('click', e=>{ if(e.target===ovl) modalRoot.innerHTML=''; });
+  document.getElementById('loginCancel').addEventListener('click', ()=>modalRoot.innerHTML='');
+  const submit = async ()=>{
+    const email = document.getElementById('loginEmail').value.trim();
+    const pw = document.getElementById('loginPw').value;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if(error){ document.getElementById('loginErr').textContent = '로그인 실패: ' + error.message; document.getElementById('loginErr').style.display='block'; return; }
+    currentUserEmail = data.user.email;
+    modalRoot.innerHTML = '';
+    setAdminUI(true);
+  };
+  document.getElementById('loginOk').addEventListener('click', submit);
+  document.getElementById('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+}
+
+// ---------- 초기화 ----------
+(async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){ currentUserEmail = session.user.email; isAdmin = true; }
+  await loadItems();
+  if(isAdmin) setAdminUI(true);
+})();
+</script>
+</body>
+</html>
