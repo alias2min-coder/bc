@@ -273,7 +273,7 @@ let currentUserEmail = null;
 async function loadItems(){
   const statusLine = document.getElementById('statusLine');
   statusLine.textContent = '불러오는 중...';
-  const { data, error } = await sb.from('current_stock').select('*');
+  const { data, error } = await sb.from('current_stock').select('*').range(0, 4999);
   if(error){
     statusLine.textContent = '데이터를 불러오지 못했습니다: ' + error.message;
     console.error(error);
